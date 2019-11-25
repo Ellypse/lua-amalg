@@ -409,6 +409,49 @@ local function amalgamate( ... )
     out = assert( io.open( oname, "w" ) )
   end
 
+  ---@language Lua
+  out:write([=[
+local package = {}
+local preload, loaded = {}, {
+  string = string,
+  debug = debug,
+  package = package,
+  _G = _G,
+  io = io,
+  os = os,
+  table = table,
+  math = math,
+  coroutine = coroutine,
+}
+package.preload, package.loaded = preload, loaded
+
+
+local function require( mod )
+  if not loaded[ mod ] then
+    local f = preload[ mod ]
+    if f == nil then
+      f = preload[ mod:gsub("%.", "/") ]
+    end
+    if f == nil then
+      error( "module '"..mod..[[' not found:
+       no field package.preload[']]..mod.."']", 1 )
+    end
+    local v = f( mod )
+    if v ~= nil then
+      loaded[ mod ] = v
+    elseif loaded[ mod ] == nil then
+      loaded[ mod ] = true
+    end
+  end
+  return loaded[ mod ]
+end
+
+local function injectRequire(loadedString)
+  setfenv(loadedString, setmetatable({ require = require }, {__index = _G;}))
+  return loadedString
+end
+]=])
+
   -- If a main script is to be embedded, this includes the same
   -- shebang line that was used in the main script, so that the
   -- resulting amalgamation can be run without explicitly
@@ -483,9 +526,9 @@ end
           -- approach is used for all files if the debug mode is active
           -- (`-d` command line option).
           out:write( "package.", tname, "[ ", qformat( m ),
-                     " ] = assert( (loadstring or load)(\n",
+                     " ] = injectRequire(assert( (loadstring or load)(\n",
                      qformat( bytes ), "\n, '@'..",
-                     qformat( path ), " ) )\n\n" )
+                     qformat( path ), " ) ) )\n\n" )
         else
           -- Under normal circumstances Lua files are pasted into a
           -- new anonymous vararg function, which then is put into
@@ -647,9 +690,9 @@ end
   if script then
     out:write( "end\n\n" )
     if script_binary or dbg then
-      out:write( "assert( (loadstring or load)(\n",
+      out:write( "injectRequire(assert( (loadstring or load)(\n",
                  qformat( script_bytes ), "\n, '@'..",
-                 qformat( script ), " ) )( ... )\n\n" )
+                 qformat( script ), " ) ) )( ... )\n\n" )
     else
       out:write( script_bytes )
     end
