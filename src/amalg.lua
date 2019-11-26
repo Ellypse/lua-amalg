@@ -425,7 +425,7 @@ local preload, loaded = {}, {
 }
 package.preload, package.loaded = preload, loaded
 
-
+local addonName, addonTable = ...
 local function require( mod )
   if not loaded[ mod ] then
     local f = preload[ mod ]
@@ -436,7 +436,7 @@ local function require( mod )
       error( "module '"..mod..[[' not found:
        no field package.preload[']]..mod.."']", 1 )
     end
-    local v = f( mod )
+    local v = f( addonName, addonTable )
     if v ~= nil then
       loaded[ mod ] = v
     elseif loaded[ mod ] == nil then
