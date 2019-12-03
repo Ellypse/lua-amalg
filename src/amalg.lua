@@ -433,6 +433,15 @@ local function require( mod )
       f = preload[ mod:gsub("%.", "/") ]
     end
     if f == nil then
+      for moduleName, module in pairs(preload) do
+        -- Ugly hacky workaround for libraries. A better solution should be found asap
+        if moduleName:find(mod:gsub("%.", "/"), 0, true) and moduleName:find("Libraries") then
+          f = module
+          break
+        end
+      end
+    end
+    if f == nil then
       error( "module '"..mod..[[' not found:
        no field package.preload[']]..mod.."']", 1 )
     end
